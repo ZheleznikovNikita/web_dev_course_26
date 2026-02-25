@@ -19,20 +19,20 @@ begin
     raise "Файл с командами не найден"
   end
   # Чтение команд из файла и формирование матчей
-  matches = []
-  File.readlines(teams_file, encoding: "UTF-8").each_with_index do |line, ind|
-    line = line.strip()
-    next if line.empty?
-    teams = line.split(/\s*—\s/)
-    if teams.size == 2
-      matches << teams
-    else
-      puts "Неверный формат строки #{ind + 1}, пропущена"
-    end
+  team_data = File.readlines(teams_file).map(&:strip).reject(&:empty?).map do |line| 
+    name, city = line.split('—').map(&:strip)
+    name = name.sub(/^\d+\.\s*/, '')
+    raise "Неверный формат строки: #{line}. Ожидается 'Команда - Город'" if name.nil? || city.nil? 
+    { name: name, city: city }
   end
-  if matches.empty?
-    raise "В файле нет команд, удовлетворяющих формату"
+  if team_data.size < 2
+    raise "Для календаря нужно минимум 2 команды"
   end
+  # Генерация всех пар
+  all_matches = team_data.combination(2).to_a
+  all_matches.shuffle!
+  matches = all_matches.sort_by { |m| m[0][:city] == m[1][:city] ? 1 : 0 }
+  # Поиск доступных слотов
   available_slots = []
   (start_date..end_date).each do |date|
     if [5, 6, 0].include?(date.wday) # 5 - пятница, 6 - суббота, 0 - воскресенье
@@ -47,18 +47,32 @@ begin
   end
   # Распределение слотов
   step = available_slots.size.to_f / matches.size
-  selected_slots = []
-  matches.size.times do |i|
-    selected_slots << available_slots[(i * step).to_i]
+
+  calendar_entries = []
+  matches.each_with_index do |match, idx|
+    slot = available_slots[(idx * step).to_i]
+    calendar_entries << {
+      date: slot[:date],
+      time: slot[:time],
+      t1: match[0],
+      t2: match[1]
+    }
   end
+  calendar_entries.sort_by! { |e| [e[:date], e[:time]] }
   # Формирорвание календаря
   calendar_output = []
   calendar_output << "Спортивный календарь"
   calendar_output << '-' * 30
-  matches.each_with_index do |match, ind|
-    slot = selected_slots[ind]
-    date_formatted = slot[:date].strftime("%d.%m.%Y (%a)")
-    calendar_output << "#{date_formatted} | #{slot[:time]} | #{match[0]} — #{match[1]}"
+  calendar_entries.each do |e|
+    date_str = e[:date].strftime("%d.%m.%Y")
+    day_name = case e[:date].wday
+               when 5 then "Пт"
+               when 6 then "Сб"
+               when 0 then "Вс"
+               end
+    match_str = "#{e[:t1][:name]} — #{e[:t2][:name]}"
+    cities_str = "(#{e[:t1][:city]} / #{e[:t2][:city]})"
+    calendar_output << sprintf("%-15s | %-5s | %-30s %s", "#{date_str} (#{day_name})", e[:time], match_str, cities_str)
   end
   # Запись календаря
   File.write(output_file, calendar_output.join("\n"))
