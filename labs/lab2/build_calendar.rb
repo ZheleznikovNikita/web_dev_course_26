@@ -1,4 +1,3 @@
-# encoding: utf-8
 require 'date'
 
 # Проверка входных данных
@@ -19,7 +18,7 @@ begin
     raise "Файл с командами не найден"
   end
   # Чтение команд из файла и формирование матчей
-  team_data = File.readlines(teams_file).map(&:strip).reject(&:empty?).map do |line| 
+  team_data = File.readlines(teams_file, encoding: "UTF-8").map(&:strip).reject(&:empty?).map do |line| 
     name, city = line.split('—').map(&:strip)
     name = name.sub(/^\d+\.\s*/, '')
     raise "Неверный формат строки: #{line}. Ожидается 'Команда - Город'" if name.nil? || city.nil? 
